@@ -49,7 +49,7 @@ pingPongImpl ( SStatus status ) = do
   runNoLoggingT . runTW info $ do
     case ( T.unpack ( Web.Twitter.Types.statusText status ) =~ ( "@chomado_bot " :: String ) ) :: ( String , String , String ) of
       ( "" , _ , "ping" ) -> do
-        call $ update $ T.pack $ "@" ++ ( T.unpack $ Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) ++ " pong"
+        call $ ( update $ T.pack $ "@" ++ ( T.unpack $ Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) ++ " pong" ) & inReplyToStatusId ?~ Web.Twitter.Types.statusId status
         return ( )
       _ -> return ( )
 pingPongImpl _ = return ( )
