@@ -1,23 +1,13 @@
-chomado-bot-on-haskell
+masakazu-bot
 ======================
 
-@chomado_bot on haskell
+@minamiyama1994_ on haskell
 
-## Install
+## Function
 
-```
-% git clone git@github.com:minamiyama1994/chomado-bot-on-haskell.git
-% cd chomado-bot-on-haskell
-% cabal sandbox init
-% cabal install
-```
-
-## Run
-
-```
-% export OAUTH_CONSUMER_KEY="OAUTH_CONSUMER_KEY"
-% export OAUTH_CONSUMER_SECRET="OAUTH_CONSUMER_SECRET"
-% export OAUTH_TOKEN="OAUTH_TOKEN"
-% export OAUTH_TOKEN_SECRET="OAUTH_TOKEN_SECRET"
-% ./.cabal-sandbox/bin/chomado-bot-on-haskell
-```
+* ping pong
+ * [reply example](https://twitter.com/minamiyama1994/status/489736886986874881)
+ * [response example](https://twitter.com/minamiyama1994_/status/489736890703020032)
+* answer time
+ * [reply example](https://twitter.com/minamiyama1994/status/489739070562508801)
+ * [response example](https://twitter.com/minamiyama1994_/status/489739074102501376)
