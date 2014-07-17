@@ -60,6 +60,10 @@ pingPongImpl ( SStatus status ) = do
     ( "" , _ , "ping" ) -> do
       call $ ( Web.Twitter.Conduit.update $ T.pack $ "@" ++ ( T.unpack $ Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) ++ " pong" ) & inReplyToStatusId ?~ Web.Twitter.Types.statusId status
       return ( )
+    ( "" , _ , "now" ) -> do
+      current <- liftIO getCurrentTime
+      call $ ( Web.Twitter.Conduit.update $ T.pack $ "@" ++ ( T.unpack $ Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) ++ " Now is " ++ show current ) & inReplyToStatusId ?~ Web.Twitter.Types.statusId status
+      return ( )
     _ -> return ( )
 pingPongImpl _ = return ( )
 
