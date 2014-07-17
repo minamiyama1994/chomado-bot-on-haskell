@@ -5,7 +5,7 @@ name:                masakazu-bot
 version:             0.1.0.0
 synopsis:            @minamiyama1994_bot on haskell
 -- description:         
-homepage:            https://github.com/minamiyama1994/chomado-bot-on-haskell
+homepage:            https://github.com/minamiyama1994/chomado-bot-on-haskell/tree/minamiyama1994
 license:             GPL-3
 license-file:        LICENSE
 author:              minamiyama1994
