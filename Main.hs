@@ -32,7 +32,10 @@ share [ mkPersist sqlSettings , mkMigrate "migrateAll" ] [persistLowerCase|
 Memo
     memo T.Text
     time DateTime default=CURRENT_TIME
+    UniqueMemo memo
 |]
+
+dbName = "memo.sqlite3"
 
 tokens = do
   ck <- getEnv "OAUTH_CONSUMER_KEY"
@@ -64,6 +67,16 @@ pingPongImpl ( SStatus status ) = do
       current <- liftIO getCurrentTime
       call $ ( Web.Twitter.Conduit.update $ T.pack $ "@" ++ ( T.unpack $ Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) ++ " Now is " ++ show current ) & inReplyToStatusId ?~ Web.Twitter.Types.statusId status
       return ( )
+    ( "" , _ , 'm' : 'e' : 'm' : 'o' : ' ' : memo ) -> if ( Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) == "minamiyama1994"
+      then do
+        current <- liftIO getCurrentTime
+        liftIO $ runSqlite dbName $ insert_ $ Memo ( T.pack memo ) current
+        call $ Web.Twitter.Conduit.update $ T.pack $ "#南山まさかずメモ " ++ memo
+        return ( )
+      else return ( )
+    ( "" , _ , "list memo" ) -> do
+      memos <- liftIO $ runSqlite dbName $ selectList [ ] [ Desc MemoTime ]
+      forM_ memos $ \ ( Database.Persist.Sqlite.Entity _ ( Memo memo time ) ) -> call $ Web.Twitter.Conduit.update $ T.pack $ "#南山まさかずメモ " ++ T.unpack memo ++ " at " ++ show time
     _ -> return ( )
 pingPongImpl _ = return ( )
 
@@ -72,5 +85,7 @@ pingPong = do
   tl C.$$+- CL.mapM_ ( ^! act ( pingPongImpl ) )
 
 main = do
+  runSqlite dbName $ do
+    runMigration migrateAll
   info <- twInfo
   runNoLoggingT . runTW info $ pingPong
