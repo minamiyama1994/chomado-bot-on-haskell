@@ -1,4 +1,10 @@
+{-# LANGUAGE EmptyDataDecls    #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE GADTs             #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 import qualified Data.Conduit as C
 import qualified Data.Conduit.List as CL
@@ -16,10 +22,18 @@ import Web.Twitter.Types
 import Web.Authenticate.OAuth
 import Control.Monad.Logger
 import Control.Monad
-import Control.Monad.IO.Class
+import Control.Monad.IO.Class ( liftIO )
 import Control.Concurrent
+import Database.Persist
+import Database.Persist.Sqlite
+import Database.Persist.TH
 
-tokens :: IO OAuth -- TwitterにアクセスするためのConsumerKeyとConsumerSecretを環境変数から取得します
+share [ mkPersist sqlSettings , mkMigrate "migrateAll" ] [persistLowerCase|
+Memo
+    memo T.Text
+    time DateTime default=CURRENT_TIME
+|]
+
 tokens = do
   ck <- getEnv "OAUTH_CONSUMER_KEY"
   cs <- getEnv "OAUTH_CONSUMER_SECRET"
@@ -28,7 +42,6 @@ tokens = do
     , oauthConsumerSecret = B.pack cs
     }
 
-credential :: IO Credential -- TwitterにアクセスするためのAccessTokenとAccessTokenSecretを環境変数から取得します
 credential = do
   token <- getEnv "OAUTH_TOKEN"
   token_secret <- getEnv "OAUTH_TOKEN_SECRET"
@@ -37,40 +50,23 @@ credential = do
     , ("oauth_token_secret", B.pack token_secret )
     ]
 
-twInfo :: IO TWInfo -- Twitterにアクセスするための情報を集めたオブジェクトの生成です
 twInfo = do
   tokens' <- tokens
   credential' <- credential
   return $ setCredential tokens' credential' def
 
-pingPongImpl :: StreamingAPI -> IO ( ) -- UserStreamをで流れてきたイベントのうち、"ping"というリプライがきていた場合はpongと返信します、その他の場合は無視します
-pingPongImpl ( SStatus status ) = do -- 普通のツイートの場合
-  info <- twInfo
-  runNoLoggingT . runTW info $ do
-    case ( T.unpack ( Web.Twitter.Types.statusText status ) =~ ( "@chomado_bot " :: String ) ) :: ( String , String , String ) of -- ちょまどbotへのリプライかどうかを正規表現で調べます
-      ( "" , _ , "ping" ) -> do -- リプライでかつpingだった場合
-        call $ ( update $ T.pack $ "@" ++ ( T.unpack $ Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) ++ " pong" ) & inReplyToStatusId ?~ Web.Twitter.Types.statusId status -- リプライ元の人にpongと返信します、Web.Twitter.Typesとかついてるのは識別子の衝突を避けるためです
-        return ( )
-      _ -> return ( ) -- リプライじゃなかったりpingじゃなかったりしたらガンスルーします
-pingPongImpl _ = return ( ) -- 普通のツイートでなければガンスルーします
+pingPongImpl ( SStatus status ) = do
+  case ( T.unpack ( Web.Twitter.Types.statusText status ) =~ ( "@minamiyama1994_ " :: String ) ) :: ( String , String , String ) of
+    ( "" , _ , "ping" ) -> do
+      call $ ( Web.Twitter.Conduit.update $ T.pack $ "@" ++ ( T.unpack $ Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) ++ " pong" ) & inReplyToStatusId ?~ Web.Twitter.Types.statusId status
+      return ( )
+    _ -> return ( )
+pingPongImpl _ = return ( )
 
-pingPong :: IO ( ) -- UserStreamでTLを監視します
 pingPong = do
-  info <- twInfo
-  runNoLoggingT . runTW info $ do
-    tl <- stream userstream -- UserStreamでTLを監視します
-    tl C.$$+- CL.mapM_ ( ^! act ( liftIO . pingPongImpl ) ) -- 一つ一つのイベントごとにpingpongimplを呼び出します
+  tl <- stream userstream
+  tl C.$$+- CL.mapM_ ( ^! act ( pingPongImpl ) )
 
-main :: IO ( )
 main = do
-  forkIO pingPong -- UserStreamを監視するスレッドを生成します
   info <- twInfo
-  runNoLoggingT . runTW info $ do -- twitter-conduitをたたくためのおまじない
-    forM_ [ 0 , 0 .. ] $ \ _ -> do -- とりあえず無限ループのために無限リストを生成しています、中身に特に意味はないです、よりよい書き方があるかも
-      liftIO $ threadDelay $ 1000 * 1000 * 1 -- 1秒間待機
-      current <- liftIO getCurrentTime >>= ( return . addMinutes' ( 60 * 9 ) ) -- 現在時刻を取得、getCurrentTimeはUTCを返してくるので日本時刻に直すために9時間足しています
-      case toGregorian current of
-        ( _ , _ , _ , hour , 0 , 0 ) -> do -- ○時きっかりであれば時刻をツイートします
-          call $ update $ T.pack $ "It is " ++ show hour ++ " o'clock now."
-          return ( )
-        _ -> return ( ) -- そうでなければ何もしません
+  runNoLoggingT . runTW info $ pingPong
