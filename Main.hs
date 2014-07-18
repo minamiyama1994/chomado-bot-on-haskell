@@ -11,18 +11,17 @@ import qualified Data.Conduit.List as CL
 import Data.DateTime
 import qualified Data.ByteString.Char8 as B
 import Control.Lens
-import Text.Regex
 import Text.Regex.Posix
 import qualified Data.Text as T
 import System.Environment
-import Web.Twitter.Conduit ( call , update , inReplyToStatusId , twitterOAuth , setCredential , StreamingAPI ( SStatus ) , runTW ) 
+import Web.Twitter.Conduit ( call , update , inReplyToStatusId , StreamingAPI ( SStatus ) ) 
 import Web.Twitter.Conduit.Stream
+import Web.Twitter.Conduit.Monad
 import Web.Twitter.Types ( statusId , statusText , statusUser , userScreenName )
 import Web.Authenticate.OAuth
 import Control.Monad.Logger
 import Control.Monad
 import Control.Monad.IO.Class ( liftIO )
-import Control.Concurrent
 import Database.Persist ( insert_ , selectList , SelectOpt ( Desc ) , Entity ( Entity ) )
 import Database.Persist.Sqlite ( runSqlite , runMigration )
 import Database.Persist.TH

@@ -20,7 +20,8 @@ executable masakazu-bot
   main-is:             Main.hs
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.6 && <4.7 , twitter-conduit == 0.0.5.* , transformers == 0.3.* , monad-logger == 0.3.* , authenticate-oauth == 1.5.* , twitter-types == 0.3.* , datetime == 0.2.* , conduit == 1.1.* , text == 0.11.* , regex-posix == 0.95.* , regex-compat == 0.95.* , lens == 4.2.* , bytestring == 0.10.* , persistent-sqlite == 1.3.* , persistent-template == 1.3.* , persistent == 1.3.*
+  build-depends:       base >=4.6 && <4.7 , twitter-conduit == 0.0.5.* , transformers == 0.3.* , monad-logger == 0.3.* , authenticate-oauth == 1.5.* , twitter-types == 0.3.* , datetime == 0.2.* , conduit == 1.1.* , text == 0.11.* , regex-posix == 0.95.* , lens == 4.2.* , bytestring == 0.10.* , persistent-sqlite == 1.3.* , persistent-template == 1.3.* , persistent == 1.3.*
 
   -- hs-source-dirs:      
   default-language:    Haskell2010
+  ghc-options:         -Wall -Wall
