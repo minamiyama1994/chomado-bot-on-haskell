@@ -15,24 +15,22 @@ import Text.Regex
 import Text.Regex.Posix
 import qualified Data.Text as T
 import System.Environment
-import Web.Twitter.Conduit
-import Web.Twitter.Conduit.Types
+import Web.Twitter.Conduit ( call , update , inReplyToStatusId , twitterOAuth , setCredential , StreamingAPI ( SStatus ) , runTW ) 
 import Web.Twitter.Conduit.Stream
-import Web.Twitter.Types
+import Web.Twitter.Types ( statusId , statusText , statusUser , userScreenName )
 import Web.Authenticate.OAuth
 import Control.Monad.Logger
 import Control.Monad
 import Control.Monad.IO.Class ( liftIO )
 import Control.Concurrent
-import Database.Persist
-import Database.Persist.Sqlite
+import Database.Persist ( insert_ , selectList , SelectOpt ( Desc ) , Entity ( Entity ) )
+import Database.Persist.Sqlite ( runSqlite , runMigration )
 import Database.Persist.TH
 
 share [ mkPersist sqlSettings , mkMigrate "migrateAll" ] [persistLowerCase|
 Memo
     memo T.Text
     time DateTime default=CURRENT_TIME
-    UniqueMemo memo
 |]
 
 dbName = "memo.sqlite3"
@@ -59,24 +57,27 @@ twInfo = do
   return $ setCredential tokens' credential' def
 
 pingPongImpl ( SStatus status ) = do
-  case ( T.unpack ( Web.Twitter.Types.statusText status ) =~ ( "@minamiyama1994_ " :: String ) ) :: ( String , String , String ) of
+  case ( T.unpack ( statusText status ) =~ ( "@minamiyama1994_ " :: String ) ) :: ( String , String , String ) of
     ( "" , _ , "ping" ) -> do
-      call $ ( Web.Twitter.Conduit.update $ T.pack $ "@" ++ ( T.unpack $ Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) ++ " pong" ) & inReplyToStatusId ?~ Web.Twitter.Types.statusId status
+      call $ ( update $ T.pack $ "@" ++ ( T.unpack $ userScreenName $ statusUser status ) ++ " pong" ) & inReplyToStatusId ?~ statusId status
       return ( )
     ( "" , _ , "now" ) -> do
       current <- liftIO getCurrentTime
-      call $ ( Web.Twitter.Conduit.update $ T.pack $ "@" ++ ( T.unpack $ Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) ++ " Now is " ++ show current ) & inReplyToStatusId ?~ Web.Twitter.Types.statusId status
+      call $ ( update $ T.pack $ "@" ++ ( T.unpack $ userScreenName $ statusUser status ) ++ " Now is " ++ show current ) & inReplyToStatusId ?~ statusId status
       return ( )
-    ( "" , _ , 'm' : 'e' : 'm' : 'o' : ' ' : memo ) -> if ( Web.Twitter.Types.userScreenName $ Web.Twitter.Types.statusUser status ) == "minamiyama1994"
+    ( "" , _ , "help" ) -> do
+      call $ ( update $ T.pack $ "@" ++ ( T.unpack $ userScreenName $ statusUser status ) ++ " Please see https://github.com/minamiyama1994/chomado-bot-on-haskell/blob/minamiyama1994/README.md" ) & inReplyToStatusId ?~ statusId status
+      return ( )
+    ( "" , _ , 'm' : 'e' : 'm' : 'o' : ' ' : memo ) -> if ( userScreenName $ statusUser status ) == "minamiyama1994"
       then do
         current <- liftIO getCurrentTime
         liftIO $ runSqlite dbName $ insert_ $ Memo ( T.pack memo ) current
-        call $ Web.Twitter.Conduit.update $ T.pack $ "#南山まさかずメモ " ++ memo
+        call $ update $ T.pack $ "#南山まさかずメモ " ++ memo
         return ( )
       else return ( )
     ( "" , _ , "list memo" ) -> do
       memos <- liftIO $ runSqlite dbName $ selectList [ ] [ Desc MemoTime ]
-      forM_ memos $ \ ( Database.Persist.Sqlite.Entity _ ( Memo memo time ) ) -> call $ Web.Twitter.Conduit.update $ T.pack $ "#南山まさかずメモ " ++ T.unpack memo ++ " at " ++ show time
+      forM_ memos $ \ ( Entity _ ( Memo memo time ) ) -> call $ update $ T.pack $ "#南山まさかずメモ " ++ T.unpack memo ++ " at " ++ show time
     _ -> return ( )
 pingPongImpl _ = return ( )
 
@@ -88,4 +89,7 @@ main = do
   runSqlite dbName $ do
     runMigration migrateAll
   info <- twInfo
-  runNoLoggingT . runTW info $ pingPong
+  runNoLoggingT . runTW info $ do
+    current <- liftIO getCurrentTime
+    call $ update $ T.pack $ "南山まさかずbotが起動しました : " ++ show current
+    pingPong

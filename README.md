@@ -12,3 +12,4 @@ masakazu-bot
  * [reply example](https://twitter.com/minamiyama1994/status/489739070562508801)
  * [response example](https://twitter.com/minamiyama1994_/status/489739074102501376)
 * memo management of @minamiyama1994
+* show help
