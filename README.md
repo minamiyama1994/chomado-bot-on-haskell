@@ -1,7 +1,7 @@
 masakazu-bot
 ======================
 
-@minamiyama1994_ on haskell
+@minamiyama1994\_ on haskell
 
 ## Function
 
@@ -13,3 +13,4 @@ masakazu-bot
  * [response example](https://twitter.com/minamiyama1994_/status/489739074102501376)
 * memo management of @minamiyama1994
 * show help
+* management timer
