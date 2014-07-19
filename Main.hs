@@ -22,14 +22,22 @@ import Web.Authenticate.OAuth
 import Control.Monad.Logger
 import Control.Monad
 import Control.Monad.IO.Class ( liftIO )
+import Control.Concurrent ( forkIO , threadDelay )
 import Database.Persist ( insert_ , selectList , SelectOpt ( Desc ) , Entity ( Entity ) )
 import Database.Persist.Sqlite ( runSqlite , runMigration )
 import Database.Persist.TH
+import Text.Parser.Char
+import Text.Parser.Combinators
+import Text.ParserCombinators.ReadP ( readP_to_S )
+import DateTimePattern
 
 share [ mkPersist sqlSettings , mkMigrate "migrateAll" ] [persistLowerCase|
 Memo
     memo T.Text
     time DateTime default=CURRENT_TIME
+Timer
+    time DateTimePattern
+    text T.Text
 |]
 
 dbName = "memo.sqlite3"
@@ -55,6 +63,33 @@ twInfo = do
   credential' <- credential
   return $ setCredential tokens' credential' def
 
+parseTimeImplSuccess = some digit >>= return . Just . read
+
+parseTimeImplFailure = char '*' >> return Nothing
+
+parseTimeImpl = choice [ parseTimeImplSuccess , parseTimeImplFailure ]
+
+parseTime = do
+  year <- parseTimeImpl
+  some space
+  month <- parseTimeImpl
+  some space
+  day <- parseTimeImpl
+  some space
+  hour <- parseTimeImpl
+  some space
+  minute <- parseTimeImpl
+  some space
+  second <- parseTimeImpl
+  return $ DateTimePattern ( year , month >>= return . fromInteger , day >>= return . fromInteger , hour >>= return . fromInteger , minute >>= return . fromInteger , second >>= return . fromInteger )
+
+parseTimer = do
+  time <- parseTime
+  some space
+  text <- many anyChar
+  eof
+  return $ Timer time $ T.pack text
+
 pingPongImpl ( SStatus status ) = do
   case ( T.unpack ( statusText status ) =~ ( "@minamiyama1994_ " :: String ) ) :: ( String , String , String ) of
     ( "" , _ , "ping" ) -> do
@@ -77,6 +112,9 @@ pingPongImpl ( SStatus status ) = do
     ( "" , _ , "list memo" ) -> do
       memos <- liftIO $ runSqlite dbName $ selectList [ ] [ Desc MemoTime ]
       forM_ memos $ \ ( Entity _ ( Memo memo time ) ) -> call $ update $ T.pack $ "#南山まさかずメモ " ++ T.unpack memo ++ " at " ++ show time
+    ( "" , _ , 't' : 'i' : 'm' : 'e' : 'r' : ' ' : body ) -> case readP_to_S parseTimer body of
+      [ ( timer' , "" ) ] -> liftIO $ runSqlite dbName $ insert_ timer'
+      _ -> return ( )
     _ -> return ( )
 pingPongImpl _ = return ( )
 
@@ -84,10 +122,28 @@ pingPong = do
   tl <- stream userstream
   tl C.$$+- CL.mapM_ ( ^! act ( pingPongImpl ) )
 
+matchTimeImpl time timeP = maybe True ( == time ) timeP
+
+matchTime dateTime pattern = matchTimeImpl year yearP && matchTimeImpl month monthP && matchTimeImpl day dayP && matchTimeImpl hour hourP && matchTimeImpl minute minuteP && matchTimeImpl second secondP where
+  ( year , month , day , hour , minute , second ) = toGregorian dateTime
+  ( yearP , monthP , dayP , hourP , minuteP , secondP ) = dateTimePattern pattern
+
+timer = do
+  current <- liftIO getCurrentTime
+  times <- liftIO $ runSqlite dbName $ selectList [ ] [ ]
+  forM_ times $ \ ( Entity _ time ) -> if matchTime ( addMinutes ( 60 * 9 ) current ) $ timerTime time
+    then do
+      call $ update $ T.pack $ ( "@minamiyama1994 " ++ ) $ T.unpack $ timerText time
+      return ( )
+    else return ( )
+  liftIO $ threadDelay $ 1000 * 500
+  timer
+
 main = do
   runSqlite dbName $ do
     runMigration migrateAll
   info <- twInfo
+  forkIO $ runNoLoggingT . runTW info $ timer
   runNoLoggingT . runTW info $ do
     current <- liftIO getCurrentTime
     call $ update $ T.pack $ "南山まさかずbotが起動しました : " ++ show current
